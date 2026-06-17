@@ -57,7 +57,6 @@ class ExpressVPN(Proxy):
         account_json: Optional[str] = None,
         cookie_path: Optional[str] = None,
         cache_path: Optional[str] = None,
-        timeout: float = 10.0,
     ):
         """
         Proxy Service using ExpressVPN browser-extension proxy credentials.
@@ -78,7 +77,6 @@ class ExpressVPN(Proxy):
             account_json: Optional path to ExpressVPN desktop account.json.
             cookie_path: Optional path to exported ExpressVPN browser cookies.
             cache_path: Optional path for cached ExpressVPN tokens.
-            timeout: Request timeout in seconds.
         """
         if region_map is not None and not isinstance(region_map, dict):
             raise TypeError(f"Expected region_map to be a dict mapping aliases to locations, not '{region_map!r}'.")
@@ -99,7 +97,6 @@ class ExpressVPN(Proxy):
         self.access_token = access_token or None
         self.connection_token = connection_token or None
         self.account_json = Path(account_json).expanduser() if account_json else None
-        self.timeout = timeout
         self._tokens: Optional[dict] = None
         self._srt: Optional[str] = None
         self._locations: Optional[list[dict]] = None
@@ -112,6 +109,9 @@ class ExpressVPN(Proxy):
 
         self.cookie_path = Path(cookie_path).expanduser() if cookie_path else self._default_cookie_path()
         self.cache_path = Path(cache_path).expanduser() if cache_path else self._default_cache_path()
+
+        # Eagerly load locations (like NordVPN.get_countries) so __repr__ is side-effect-free
+        self._locations = self._get_locations()
 
     def __repr__(self) -> str:
         if self._locations is not None:
@@ -722,7 +722,6 @@ class ExpressVPN(Proxy):
     # ------------------------------------------------------------------
 
     def _request(self, method: str, url: str, allow_error: bool = False, **kwargs) -> requests.Response:
-        kwargs.setdefault("timeout", self.timeout)
         response = requests.request(method, url, **kwargs)
         if response.ok or allow_error:
             return response
